@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2155
+set -e
+[[ -n "$TRACE" ]] && set -x
+
+buildpack_name="$(jq -r .name "$CNB_BUILDPACK_DIR/build.json")"
+buildpack_layer="$CNB_LAYERS_DIR/$buildpack_name"
+
+cat <<TOML >>"${buildpack_layer}.toml"
+
+[metadata]
+ocr_languages = "$TESSERACT_OCR_LANGUAGES"
+TOML

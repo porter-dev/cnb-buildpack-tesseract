@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2155
+set -e
+[[ -n "$TRACE" ]] && set -x
+
+env_dir="$CNB_PLATFORM_DIR/env"
+
+if compgen -G "${env_dir}/*" >/dev/null; then
+    for var in "${env_dir}"/*; do
+        declare "$(basename ${var})=$(<${var})"
+    done
+fi
+
+indent() {
+    sed -u "s/^/       /"
+}
+
+puts-header() {
+    echo "=====> $*"
+}
+
+puts-step() {
+    echo "-----> $*"
+}
+
+puts-info() {
+    echo "       $*"
+}
+
+install_bin() {
+    local buildpack_name="$(jq -r .name "$CNB_BUILDPACK_DIR/build.json")"
+    local bin_version="$(jq -r .version "$CNB_BUILDPACK_DIR/build.json")"
+    local archive_name="$(jq -r .archive "$CNB_BUILDPACK_DIR/build.json")"
+    local build_cmds="$(jq -r .build "$CNB_BUILDPACK_DIR/build.json")"
+    local bin_path="$(jq -r .bin_path "$CNB_BUILDPACK_DIR/build.json")"
+    local bin_name="$buildpack_name"
+    local binaries="$(jq -r .binaries "$CNB_BUILDPACK_DIR/build.json")"
+    if [[ -z "$binaries" ]] || [[ "$binaries" == "null" ]]; then
+        binaries="$bin_name"
+    else
+        binaries="$(jq -r '.binaries | join(",")' "$CNB_BUILDPACK_DIR/build.json")"
+    fi
+
+    if [[ -z "$build_cmds" ]] || [[ "$build_cmds" == "null" ]]; then
+        build_cmds=""
+    else
+        build_cmds="$(jq -r '.build | join("\n")' "$CNB_BUILDPACK_DIR/build.json")"
+    fi
+
+    local buildpack_layer="$CNB_LAYERS_DIR/$buildpack_name"
+    local tarball_path="$CNB_BUILDPACK_DIR/${archive_name}"
+
+    puts-header "Executing $buildpack_name buildpack"
+    if [[ -x "${buildpack_layer}/bin/${bin_name}-${bin_version}" ]]; then
+        puts-step "Using cached version ${bin_version}"
+        for binary_name in ${binaries//,/ }; do
+            puts-info "Copying $binary_name to bin directory"
+            chmod +x "$buildpack_layer/bin/$binary_name-$bin_version"
+            cp -f "$buildpack_layer/bin/$binary_name-$bin_version" "$buildpack_layer/bin/$binary_name"
+        done
+    else
+        for binary_name in ${binaries//,/ }; do
+            rm -f "$buildpack_layer/bin/$binary_name"
+        done
+
+        puts-step "Untarring ${archive_name}"
+        local install_dir="$buildpack_layer"
+        local bin_dir="$install_dir/bin"
+        rm -rf "$buildpack_layer"
+        mkdir -p "$buildpack_layer"
+        tar -zxf "$tarball_path" -C "$install_dir" --strip-components=1
+
+        if [[ -n "$build_cmds" ]]; then
+            puts-step "Compiling $buildpack_name"
+            pushd "$install_dir" >/dev/null
+            while IFS= read -r build_cmd; do
+                if [[ -z "$build_cmd" ]]; then
+                    continue
+                fi
+                eval "$build_cmd" 2>&1 | indent
+            done <<<"$build_cmds"
+            popd >/dev/null
+        fi
+
+        mkdir -p "$bin_dir"
+        for binary_name in ${binaries//,/ }; do
+            puts-info "Copying $binary_name to bin directory"
+            if [[ -n "$bin_path" ]] && [[ "$bin_path" != "null" ]]; then
+                cp -f "$buildpack_layer/$bin_path/$binary_name" "$buildpack_layer/$binary_name"
+            fi
+
+            if [[ ! -f "$buildpack_layer/$binary_name" ]] && [[ -f "$buildpack_layer/bin/$binary_name" ]]; then
+                cp "$buildpack_layer/bin/$binary_name" "$buildpack_layer/$binary_name"
+            fi
+
+            chmod +x "$buildpack_layer/$binary_name"
+            cp -f "$buildpack_layer/$binary_name" "$buildpack_layer/bin/$binary_name-$bin_version"
+            cp -f "$buildpack_layer/$binary_name" "$buildpack_layer/bin/$binary_name"
+        done
+
+    fi
+
+    # a bin/post-build can be used to trigger custom logic for the buildpack
+    # it is strictly responsible for it's own caching logic
+    if [[ -f "$CNB_BUILDPACK_DIR/bin/post-build" ]]; then
+        # grant the post-build script access to helper functions
+        export -f puts-header
+        export -f puts-info
+        export -f puts-step
+        export -f indent
+        "$CNB_BUILDPACK_DIR/bin/post-build"
+    fi
+
+    puts-step "Creating launch configuration"
+    cat <<EOF >"${CNB_LAYERS_DIR}/launch.toml"
+[[processes]]
+type = "$bin_name"
+command = ["$bin_name"]
+
+[[processes]]
+type = "bash"
+command = ["/bin/bash"]
+EOF
+
+    cat <<TOML >"${buildpack_layer}.toml"
+[types]
+launch = true
+cache = true
+TOML
+
+    # provide the ability to modify the launch config after the fact
+    if [[ -f "$CNB_BUILDPACK_DIR/bin/post-launch-config" ]]; then
+        "$CNB_BUILDPACK_DIR/bin/post-launch-config"
+    fi
+}
+
+install_bin

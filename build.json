@@ -1,0 +1,6 @@
+{
+    "name": "tesseract",
+    "version": "4.0",
+    "type": "tarball",
+    "archive": "tesseract-ocr-4.0.tar.gz"
+}

@@ -1,0 +1,15 @@
+api = "0.10"
+WithWindowsBuild = false
+WithLinuxBuild = false
+
+[buildpack]
+id = "porter-dev/tesseract"
+version = "0.0.1"
+
+[[targets]]
+os = "linux"
+arch = "amd64"
+
+[[targets.distributions]]
+name = "ubuntu"
+versions = ["20.04", "22.04"]

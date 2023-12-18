@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2155
+set -e
+[[ -n "$TRACE" ]] && set -x
+
+buildpack_name="$(jq -r .name "$CNB_BUILDPACK_DIR/build.json")"
+buildpack_layer="$CNB_LAYERS_DIR/$buildpack_name"
+bin_version="$(jq -r .version "$CNB_BUILDPACK_DIR/build.json")"
+data_dir="$buildpack_layer/tessdata"
+
+if [[ -z "$TESSERACT_OCR_LANGUAGES" ]]; then
+    puts-header "No TESSERACT_OCR_LANGUAGES specified, clearing out existing training data"
+    rm -rf "$data_dir"
+    exit 0
+fi
+
+puts-header "Downloading training data for version $bin_version"
+if [[ -f "${buildpack_layer}.toml" ]]; then
+    if grep -q "ocr_languages = \"$TESSERACT_OCR_LANGUAGES\"" "${buildpack_layer}.toml"; then
+        for lang in ${TESSERACT_OCR_LANGUAGES//,/ }; do
+            training_file="$data_dir/$lang.traineddata"
+            if [[ -f "$training_file" ]]; then
+                puts-step "Skipping existing training data for $lang"
+                continue
+            fi
+
+            puts-step "Downloading training data for $lang"
+            curl -sSL -o "$data_dir/$lang.traineddata" "https://raw.githubusercontent.com/tesseract-ocr/tessdata/$bin_version/$lang.traineddata" 2>&1 | indent
+        done
+        exit 0
+    fi
+
+    puts-step "Detected change in TESSERACT_OCR_LANGUAGES, clearing out all existing training data"
+    rm -rf "$data_dir"
+fi
+
+mkdir -p "$data_dir"
+for lang in ${TESSERACT_OCR_LANGUAGES//,/ }; do
+    puts-step "Downloading training data for $lang"
+    curl -sSL -o "$data_dir/$lang.traineddata" "https://raw.githubusercontent.com/tesseract-ocr/tessdata/$bin_version/$lang.traineddata" 2>&1 | indent
+done
