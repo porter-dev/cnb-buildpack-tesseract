@@ -13,3 +13,12 @@ arch = "amd64"
 [[targets.distributions]]
 name = "ubuntu"
 versions = ["20.04", "22.04"]
+
+[[stacks]]
+id = "io.buildpacks.stacks.bionic"
+
+[[stacks]]
+id = "heroku-20"
+
+[[stacks]]
+id = "heroku-22"
