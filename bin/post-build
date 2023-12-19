@@ -31,8 +31,9 @@ if [[ -f "${buildpack_layer}.toml" ]]; then
                 continue
             fi
 
-            puts-step "Downloading training data for $lang"
-            curl -sSL -o "$data_dir/$lang.traineddata" "https://raw.githubusercontent.com/tesseract-ocr/tessdata/$bin_version/$lang.traineddata" 2>&1 | indent
+            url="https://raw.githubusercontent.com/tesseract-ocr/tessdata/$bin_version/$lang.traineddata"
+            puts-step "Downloading training data for $lang from $url"
+            curl -sSL -o "$data_dir/$lang.traineddata" "$url" 2>&1 | indent
         done
         exit 0
     fi
@@ -43,6 +44,7 @@ fi
 
 mkdir -p "$data_dir"
 for lang in ${TESSERACT_OCR_LANGUAGES//,/ }; do
-    puts-step "Downloading training data for $lang"
-    curl -sSL -o "$data_dir/$lang.traineddata" "https://raw.githubusercontent.com/tesseract-ocr/tessdata/$bin_version/$lang.traineddata" 2>&1 | indent
+    url="https://raw.githubusercontent.com/tesseract-ocr/tessdata/$bin_version/$lang.traineddata"
+    puts-step "Downloading training data for $lang from $url"
+    curl -sSL -o "$data_dir/$lang.traineddata" "$url" 2>&1 | indent
 done
