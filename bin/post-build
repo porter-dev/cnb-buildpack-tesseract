@@ -8,9 +8,16 @@ buildpack_layer="$CNB_LAYERS_DIR/$buildpack_name"
 bin_version="$(jq -r .version "$CNB_BUILDPACK_DIR/build.json")"
 data_dir="$buildpack_layer/tessdata"
 
+mkdir -p "$buildpack_layer/profile.d"
+cat <<EOF >"$buildpack_layer/profile.d/tesseract.sh"
+export LD_LIBRARY_PATH="$buildpack_layer/lib:\$LD_LIBRARY_PATH"
+export TESSDATA_PREFIX="$data_dir"
+EOF
+
 if [[ -z "$TESSERACT_OCR_LANGUAGES" ]]; then
     puts-header "No TESSERACT_OCR_LANGUAGES specified, clearing out existing training data"
     rm -rf "$data_dir"
+    mkdir -p "$data_dir"
     exit 0
 fi
 
