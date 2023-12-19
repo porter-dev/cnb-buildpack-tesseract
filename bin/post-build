@@ -9,11 +9,10 @@ bin_version="$(jq -r .version "$CNB_BUILDPACK_DIR/build.json")"
 data_dir="$buildpack_layer/tessdata"
 
 puts-header "Updating runtime environment"
-mkdir -p "$buildpack_layer/profile.d"
-cat <<EOF >"$buildpack_layer/profile.d/$buildpack_name.sh"
-export LD_LIBRARY_PATH="$buildpack_layer/lib:\$LD_LIBRARY_PATH"
-export TESSDATA_PREFIX="$data_dir"
-EOF
+mkdir -p "$buildpack_layer/env"
+echo -n "$data_dir" > "$buildpack_layer/env/TESSDATA_PREFIX.default"
+echo -n "$buildpack_layer/lib" > "$buildpack_layer/env/LD_LIBRARY_PATH.prepend"
+echo -n ":" > "$buildpack_layer/env/LD_LIBRARY_PATH.delim"
 
 if [[ -z "$TESSERACT_OCR_LANGUAGES" ]]; then
     puts-header "No TESSERACT_OCR_LANGUAGES specified, clearing out existing training data"
