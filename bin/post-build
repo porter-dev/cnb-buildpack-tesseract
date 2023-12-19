@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2155
-set -e
+set -eo pipefail
 [[ -n "$TRACE" ]] && set -x
 
 buildpack_name="$(jq -r .name "$CNB_BUILDPACK_DIR/build.json")"
