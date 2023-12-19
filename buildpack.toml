@@ -4,7 +4,7 @@ WithLinuxBuild = false
 
 [buildpack]
 id = "porter-dev/tesseract"
-version = "0.0.2"
+version = "0.0.3"
 
 [[targets]]
 os = "linux"
