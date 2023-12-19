@@ -8,8 +8,9 @@ buildpack_layer="$CNB_LAYERS_DIR/$buildpack_name"
 bin_version="$(jq -r .version "$CNB_BUILDPACK_DIR/build.json")"
 data_dir="$buildpack_layer/tessdata"
 
+puts-header "Updating runtime environment"
 mkdir -p "$buildpack_layer/profile.d"
-cat <<EOF >"$buildpack_layer/profile.d/tesseract.sh"
+cat <<EOF >"$buildpack_layer/profile.d/buildpack_name.sh"
 export LD_LIBRARY_PATH="$buildpack_layer/lib:\$LD_LIBRARY_PATH"
 export TESSDATA_PREFIX="$data_dir"
 EOF
